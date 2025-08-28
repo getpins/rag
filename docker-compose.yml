@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    # No need to map ports, rag-api connects via service name inside the network
+    volumes:
+      - ./chroma-data:/chroma/.chromadb
+
+  rag-api:
+    build: .
+    container_name: rag-api
+    depends_on:
+      - chromadb
+    ports:
+      - "8000:8000"   # only expose FastAPI API
+    environment:
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000   # internal ChromaDB port
+    volumes:
+      - ./app-data:/app/data
