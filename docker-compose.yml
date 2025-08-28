@@ -16,5 +16,7 @@ services:
     environment:
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000   # internal ChromaDB port
+      - API_SECRET=${API_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     volumes:
       - ./app-data:/app/data
