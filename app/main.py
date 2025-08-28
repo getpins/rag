@@ -4,12 +4,21 @@ import chromadb
 from chromadb.utils import embedding_functions
 import uuid
 import os
+import logging
 from openai import OpenAI
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
+
+logger = logging.getLogger(__name__)
 app = FastAPI(title="Simple RAG API")
 
 # Auth secret from environment
 API_SECRET = os.getenv("API_SECRET", "changeme")
+
+logger.info(f"API_SECRET loaded: {'***' if API_SECRET != 'changeme' else 'changeme (default!)'}")
 
 def verify_bearer_token(authorization: str = Header(...)):
     if not authorization.startswith("Bearer "):
@@ -21,7 +30,11 @@ def verify_bearer_token(authorization: str = Header(...)):
 # Connect to Chroma service
 CHROMA_HOST = os.getenv("CHROMA_HOST", "chromadb")
 CHROMA_PORT = int(os.getenv("CHROMA_PORT", "8000"))
+
+logger.info(f"Connecting to ChromaDB at {CHROMA_HOST}:{CHROMA_PORT}")
 client = chromadb.HttpClient(host=CHROMA_HOST, port=CHROMA_PORT)
+
+logger.info("Initializing embedding function with model: all-MiniLM-L6-v2")
 
 embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
@@ -31,6 +44,7 @@ collection = client.get_or_create_collection(
     name="documents",
     embedding_function=embedding_function
 )
+logger.info("ChromaDB collection ready.")
 
 # OpenAI client
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
