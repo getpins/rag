@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import hmac
 from fastapi import FastAPI, HTTPException, Depends, Header
 from pydantic import BaseModel
 import chromadb
@@ -20,12 +23,27 @@ API_SECRET = os.getenv("API_SECRET", "changeme")
 
 logger.info(f"API_SECRET loaded: {'***' if API_SECRET != 'changeme' else 'changeme (default!)'}")
 
-def verify_bearer_token(authorization: str = Header(...)):
-    if not authorization.startswith("Bearer "):
+async def verify_hmac_signature(authorization: str = Header(...), request: Request = None):
+    """
+    verify HMAC signature
+    Header format: Authorization: HMAC <signature>
+    """
+    if not authorization.startswith("HMAC "):
         raise HTTPException(status_code=401, detail="Invalid authorization header")
-    token = authorization.split(" ")[1]
-    if token != API_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid or missing token")
+
+    try:
+        _, signature = authorization.split(" ", 1)
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid HMAC header format")
+
+    body = await request.body()
+
+    expected_signature = base64.b64encode(
+        hmac.new(API_SECRET.encode(), body, hashlib.sha256).digest()
+    ).decode()
+
+    if not hmac.compare_digest(expected_signature, signature):
+        raise HTTPException(status_code=401, detail="Invalid HMAC signature")
 
 # Connect to Chroma service
 CHROMA_HOST = os.getenv("CHROMA_HOST", "chromadb")
@@ -58,8 +76,8 @@ class Query(BaseModel):
     question: str
     max_results: int = 5
 
-@app.post("/documents")
-async def add_or_update_document(doc: Document, _: str = Depends(verify_bearer_token)):
+@app.post("/document")
+async def add_or_update_document(doc: Document, _: str = Depends(verify_hmac_signature)):
     try:
         doc_id = doc.id if doc.id else str(uuid.uuid4())
         existing = collection.get(ids=[doc_id])
@@ -81,7 +99,7 @@ async def add_or_update_document(doc: Document, _: str = Depends(verify_bearer_t
         raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
 
 @app.post("/answer")
-async def answer_query(query: Query, _: str = Depends(verify_bearer_token)):
+async def answer_query(query: Query, _: str = Depends(verify_hmac_signature)):
     try:
         results = collection.query(
             query_texts=[query.question],
