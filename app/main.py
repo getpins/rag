@@ -98,6 +98,19 @@ async def add_or_update_document(doc: Document, _: str = Depends(verify_hmac_sig
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing document: {str(e)}")
 
+@app.delete("/document/{doc_id}")
+async def delete_document(doc_id: str, _: str = Depends(verify_hmac_signature)):
+    try:
+        existing = collection.get(ids=[doc_id])
+        if not existing["ids"]:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        collection.delete(ids=[doc_id])
+
+        return {"document_id": doc_id, "status": "Document deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting document: {str(e)}")
+    
 @app.post("/answer")
 async def answer_query(query: Query, _: str = Depends(verify_hmac_signature)):
     try:
