@@ -1,7 +1,7 @@
 import base64
 import hashlib
 import hmac
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from pydantic import BaseModel
 import chromadb
 from chromadb.utils import embedding_functions
